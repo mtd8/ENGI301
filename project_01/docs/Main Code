@@ -1,0 +1,267 @@
+<h1>ThermoBuddy</h1>
+"""
+--------------------------------------------------------------------------
+Temperature/Humidity Sensor
+--------------------------------------------------------------------------
+License:   
+Copyright 2024 Marc De Guzman
+
+Redistribution and use in source and binary forms, with or without 
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this 
+list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice, 
+this list of conditions and the following disclaimer in the documentation 
+and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors 
+may be used to endorse or promote products derived from this software without 
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" 
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE 
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL 
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER 
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, 
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+--------------------------------------------------------------------------
+
+Use the HT16K33 Display and a button to create a digital people counter
+
+Requirements:
+  - Increment the counter by one each time the button is pressed
+  - If button is held for more than 2s, reset the counter
+
+Uses:
+  - HT16K33 display library developed in class
+
+"""
+import time
+import ht16k33 as HT16K33
+import sensor as SENSOR
+import led as LED
+import button as BUTTON
+import threading
+
+# ------------------------------------------------------------------------
+# Constants
+# ------------------------------------------------------------------------
+
+# None
+
+# ------------------------------------------------------------------------
+# Global variables
+# ------------------------------------------------------------------------
+
+# None
+
+# ------------------------------------------------------------------------
+# Functions / Classes
+# ------------------------------------------------------------------------
+
+class Code():
+    """ People Counter """
+    reset_time = None
+    button     = None
+    display    = None
+    display2   = None
+    
+    
+    def __init__(self, reset_time=1.0, button="P2_2", button2="P2_8", button3="P2_17",button4="P2_19", i2c_bus=1, i2c_bus2 = 2, i2c_address=0x70, i2c_address2=0x71):
+        """ Initialize variables and set up display """
+        self.reset_time = reset_time
+        self.display    = HT16K33.HT16K33(i2c_bus, i2c_address)
+        self.display2   = HT16K33.HT16K33(i2c_bus2, i2c_address)
+        self.display3   = HT16K33.HT16K33(i2c_bus2, i2c_address2)
+        self.display4   = HT16K33.HT16K33(i2c_bus, i2c_address2)
+        self.sensor     = SENSOR.Sensor()
+        self.ledtemp    = LED.LED("P2_4")
+        self.ledhumidity    = LED.LED("P2_6")
+        self.button = BUTTON.Button(button)
+        self.button2 = BUTTON.Button(button2)
+        self.button3 = BUTTON.Button(button3)
+        self.button4 = BUTTON.Button(button4)
+        self.tthresholdlow = 25
+        self.tthresholdhigh = 30
+        self.hthresholdlow = 20
+        self.hthresholdhigh = 70
+        self.reset_time = 1
+        self._setup()
+        
+    
+    # End def
+    
+    
+    def _setup(self):
+        """Setup the hardware components."""
+        
+        # Initialize Display to "0000"
+        self.display.clear()
+    
+    # End def
+    
+
+    def runtempandhumidity(self):
+        """Execute the main program."""
+        # Initialize Variables
+        import time
+        button_press_time = 0
+        button2_press_time = 0
+        while(1):
+            # Wait for button press and get the press time
+            
+            temp = self.sensor.get_temperature()
+            temp = round(temp,2)
+            #print(temp)
+            humidity = self.sensor.get_humidity()
+            humidity = round(humidity,2)
+            #print(humidity)
+            # Update the display
+            self.display2.updatefloat(temp)
+            self.display.updatefloat(humidity)
+            self.display3.set_digit(1, (self.tthresholdlow % 10))
+            self.display3.set_digit(0, (self.tthresholdlow // 10) % 10)
+            self.display3.set_digit(3, (self.tthresholdhigh % 10))
+            self.display3.set_digit(2, (self.tthresholdhigh // 10) % 10)
+            
+            self.display4.set_digit(1, (self.hthresholdlow % 10))
+            self.display4.set_digit(0, (self.hthresholdlow // 10) % 10)
+            self.display4.set_digit(3, (self.hthresholdhigh % 10))
+            self.display4.set_digit(2, (self.hthresholdhigh // 10) % 10)
+        
+            if temp < self.tthresholdlow or temp > self.tthresholdhigh:
+                self.ledtemp.on()
+            else:
+                self.ledtemp.off()
+            
+            if humidity < self.hthresholdlow or humidity > self.hthresholdhigh:
+                self.ledhumidity.on()
+            else:
+                self.ledhumidity.off()
+            
+            time.sleep(1)
+            
+            
+            
+    # End def
+    
+    def buttonthread(self):
+        while True:
+            self.button.wait_for_press()
+            self.button_press_time = code.button.get_last_press_duration()
+            print(self.button_press_time)
+            
+            if self.button_press_time < self.reset_time:
+                self.tthresholdlow += 1
+            else:
+                self.tthresholdlow -= 1
+    
+    def button2thread(self):
+        while True:
+            self.button2.wait_for_press()
+            self.button2_press_time = code.button2.get_last_press_duration()
+            print(self.button2_press_time)
+            
+            if self.button2_press_time < self.reset_time:
+                self.tthresholdhigh += 1
+            else:
+                self.tthresholdhigh -= 1
+                
+    def button3thread(self):
+        while True:
+            self.button3.wait_for_press()
+            self.button3_press_time = code.button3.get_last_press_duration()
+            print(self.button3_press_time)
+            
+            if self.button3_press_time < self.reset_time:
+                self.hthresholdlow += 1
+            else:
+                self.hthresholdlow -= 1
+    
+    def button4thread(self):
+        while True:
+            self.button4.wait_for_press()
+            self.button4_press_time = code.button4.get_last_press_duration()
+            print(self.button4_press_time)
+            
+            if self.button4_press_time < self.reset_time:
+                self.hthresholdhigh += 1
+            else:
+                self.hthresholdhigh -= 1
+
+
+    def cleanup(self):
+        """Cleanup the hardware components."""
+        
+        # Set Display to something fun to show program is complete
+        self.display.text("done")
+        self.display2.text("done")
+        
+    # End def
+
+# End class
+
+
+
+# ------------------------------------------------------------------------
+# Main script
+# ------------------------------------------------------------------------
+
+if __name__ == '__main__':
+
+    print("Program Start")
+
+    # Create instantiation of the temperature readings
+    code = Code()
+
+        # Run the readings
+    temp_thread = threading.Thread(target=code.runtempandhumidity)
+    button_thread = threading.Thread(target=code.buttonthread)
+    button2_thread = threading.Thread(target=code.button2thread)
+    button3_thread = threading.Thread(target=code.button3thread)
+    button4_thread = threading.Thread(target=code.button4thread)
+
+    # Start the thread for runtempandhumidity
+    temp_thread.start()
+    button_thread.start()
+    button2_thread.start()
+    button3_thread.start()
+    button4_thread.start()
+        
+    try:
+        #code.runtempandhumidity()
+        while True:
+            pass
+            #code.button2.wait_for_press()
+            #code.button2_press_time = code.button2.get_last_press_duration()
+            #print(code.button2_press_time)
+            
+            #if code.button2_press_time < code.reset_time:
+                #code.tthresholdhigh += 1
+            #else:
+                #code.tthresholdhigh -= 1
+            #if code.button2_press_time < code.reset_time:
+                #code.hthresholdhigh += 1
+        
+            #code.button2.wait_for_press()
+            #code.button2_press_time = code.button2.get_last_press_duration()
+            
+            #if code.button2_press_time < code.reset_time:
+                #code.hthresholdhigh += 1
+        
+    except KeyboardInterrupt:
+        # Clean up hardware when exiting
+        code.cleanup()
+        temp_thread.join()
+        button_thread.join()
+        button2_thread.join()
+        button3_thread.join()
+        button4_thread.join()
+
+    print("Program Complete")
